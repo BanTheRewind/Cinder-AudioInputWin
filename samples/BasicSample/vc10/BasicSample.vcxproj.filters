@@ -16,7 +16,7 @@
     <Filter Include="blocks">
       <UniqueIdentifier>{07107ebc-0127-4ea4-9af6-37921c5ca226}</UniqueIdentifier>
     </Filter>
-    <Filter Include="blocks\AudioInputWin">
+    <Filter Include="blocks\Cinder-AudioInputWin">
       <UniqueIdentifier>{e2e66c44-a2d5-4a63-91d7-cf93b306157e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -32,7 +32,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\AudioInput.h">
-      <Filter>blocks\AudioInputWin</Filter>
+      <Filter>blocks\Cinder-AudioInputWin</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -15,12 +15,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\blocks\AudioInputWin\src\AudioInput.cpp">
+    <ClCompile Include="..\src\AudioInput.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\blocks\AudioInputWin\src\AudioInput.h">
+    <ClInclude Include="..\src\AudioInput.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -49,12 +49,12 @@ public:
 
 	// Cinder callbacks
 	void draw();
-	void keyUp(ci::app::KeyEvent event);
+	void keyUp( ci::app::KeyEvent event );
 	void setup();
 	void shutdown();
 	
 	// Receives input
-	void onData(float * data, int32_t size);
+	void onData( float * data, int32_t size );
 
 	// Writes PCM buffer to file
 	void writeData();
@@ -62,25 +62,25 @@ public:
 private:
 
 	// Audio input
-	AudioInputRef mInput;
-	float * mData;
+	float *						mData;
+	AudioInputRef				mInput;
 
 	// File writing
-	std::ofstream mFile;
-	AudioInput::WAVFILEHEADER mFileHeader;
-	int16_t * mPcmBuffer;
-	int32_t mPcmBufferPosition;
-	int32_t mPcmBufferSize;
-	uint32_t mPcmTotalSize;
-	bool mRecording;
+	std::ofstream				mFile;
+	AudioInput::WAVFILEHEADER	mFileHeader;
+	int16_t *					mPcmBuffer;
+	int32_t						mPcmBufferPosition;
+	int32_t						mPcmBufferSize;
+	uint32_t					mPcmTotalSize;
+	bool						mRecording;
 
 	// WAV format
-	int32_t mBitsPerSample;
-	int32_t mChannelCount;
-	int32_t mSampleRate;
+	int32_t						mBitsPerSample;
+	int32_t						mChannelCount;
+	int32_t						mSampleRate;
 
 	// Text
-	ci::gl::TextureFontRef mFont;
+	ci::gl::TextureFontRef		mFont;
 
 };
 
@@ -94,66 +94,65 @@ void WavWriterSampleApp::draw()
 {
 
 	// Clear screen
-	gl::setMatricesWindow(getWindowSize());
-	gl::clear(Color::black());
+	gl::setMatricesWindow( getWindowSize() );
+	gl::clear( Color::black() );
 
 	// We have data
-	if (mData != 0)
-	{
+	if ( mData != 0 ) {
 
 		// Get size of data
 		int32_t dataSize = mInput->getDataSize();
 		float dataSizef = (float)dataSize;
 
 		// Get dimensions
-		float scale = ((float)getWindowWidth() - 20.0f) / dataSizef;
+		float scale = ( (float)getWindowWidth() - 20.0f ) / dataSizef;
 		float windowHeight = (float)getWindowHeight();
 
 		// Use polyline to depict audio
 		PolyLine<Vec2f> line;
 
 		// Set line color
-		if (mRecording)
-			gl::color(ColorAf(1.0f, 0.0f, 0.0f, 1.0f));
-		else
-			gl::color(ColorAf::white());
+		if ( mRecording ) {
+			gl::color( ColorAf( 1.0f, 0.0f, 0.0f, 1.0f ) );
+		} else {
+			gl::color( ColorAf::white() );
+		}
 
 		// Iterate through data and populate line
-		for (int32_t i = 0; i < dataSize; i++) 
-			line.push_back(Vec2f((float)i * scale + 10.0f, mData[i] * (windowHeight - 20.0f) * 0.25f + (windowHeight * 0.5f + 10.0f)));
+		for ( int32_t i = 0; i < dataSize; i++ ) { 
+			line.push_back( Vec2f( (float)i * scale + 10.0f, mData[ i ] * ( windowHeight - 20.0f ) * 0.25f + ( windowHeight * 0.5f + 10.0f ) ) );
+		}
 
 		// Draw signal
-		gl::draw(line);
+		gl::draw( line );
 
 	}
 
 	// Write instructions (scaling to improve text quality)
 	gl::pushMatrices();
-	gl::scale(0.25f, 0.25f, 1.0f);
-	mFont->drawString("Press SPACE to start/stop recording", Vec2f(20.0f, 580.0f) * 4.0f);
+	gl::scale( 0.25f, 0.25f, 1.0f );
+	mFont->drawString( "Press SPACE to start/stop recording", Vec2f( 20.0f, 580.0f ) * 4.0f );
 	gl::popMatrices();
 
 }
 
 // Handles key press
-void WavWriterSampleApp::keyUp(KeyEvent event)
+void WavWriterSampleApp::keyUp( KeyEvent event )
 {
 
 	// Toggle recording with space bar
-	if (event.getCode() == KeyEvent::KEY_SPACE)
-	{
+	if ( event.getCode() == KeyEvent::KEY_SPACE ) {
 
 		// Currently recording
-		if (mRecording)
-		{
+		if ( mRecording ) {
 
 			// Save remaining data
-			if (mPcmBufferSize > 0) 
+			if ( mPcmBufferSize > 0 ) {
 				writeData();
+			}
 
 			// Close file
-			if (mFile.is_open())
-			{
+			if ( mFile.is_open() ) {
 				mFile.flush();
 				mFile.close();
 			}
@@ -167,7 +166,7 @@ void WavWriterSampleApp::keyUp(KeyEvent event)
 			mPcmTotalSize = 0;
 
 			// Open file for streaming
-			mFile.open(getAppPath() + "output.wav", ios::binary | ios::trunc);
+			mFile.open( getAppPath() + "output.wav", ios::binary | ios::trunc );
 
 		}
 
@@ -179,23 +178,23 @@ void WavWriterSampleApp::keyUp(KeyEvent event)
 }
 
 // Called when buffer is full
-void WavWriterSampleApp::onData(float * data, int32_t size)
+void WavWriterSampleApp::onData( float * data, int32_t size )
 {
 
 	// Get float data
 	mData = data;
 
 	// Check recording flag and buffer size
-	if (mRecording && size <= mInput->getBufferLength())
-	{
+	if ( mRecording && size <= mInput->getBufferLength() ) {
 
 		// Save the PCM data to file and reset the array if we 
 		// don't have room for this buffer
-		if (mPcmBufferPosition + size >= mPcmBufferSize) 
+		if ( mPcmBufferPosition + size >= mPcmBufferSize ) {
 			writeData();
+		}
 
 		// Copy PCM data to file buffer
-		copy(mInput->getData(), mInput->getData() + size, mPcmBuffer + mPcmBufferPosition);
+		copy( mInput->getData(), mInput->getData() + size, mPcmBuffer + mPcmBufferPosition );
 
 		// Update PCM position
 		mPcmBufferPosition += size;
@@ -209,18 +208,18 @@ void WavWriterSampleApp::setup()
 {
 
 	// Set up window
-	setFrameRate(60);
-	setWindowSize(600, 600);
+	setFrameRate( 60 );
+	setWindowSize( 600, 600 );
 
 	// Set up line and text rendering
-	glEnable(GL_LINE_SMOOTH);
-	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-	glEnable(GL_POLYGON_SMOOTH);
-	glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);
+	gl::enable( GL_LINE_SMOOTH );
+	glHint( GL_LINE_SMOOTH_HINT, GL_NICEST );
+	gl::enable( GL_POLYGON_SMOOTH );
+	glHint( GL_POLYGON_SMOOTH_HINT, GL_NICEST );
 
 	// Create font (we'll be scaling down the 
 	// oversized text so it looks cleaner)
-	mFont = gl::TextureFont::create(Font("Tahoma", 96));
+	mFont = gl::TextureFont::create( Font( "Tahoma", 96 ) );
 
 	// Define audio settings
 	mBitsPerSample = sizeof(int16_t) * 8;
@@ -228,38 +227,39 @@ void WavWriterSampleApp::setup()
 	mSampleRate = 44100;
 
 	// Create audio input
-	mInput = AudioInput::create(mSampleRate, mChannelCount);
+	mInput = AudioInput::create( mSampleRate, mChannelCount );
 
 	// Set up file stream
 	mRecording = false;
-	mPcmBufferSize = (AudioInput::BUFFER_COUNT * mInput->getBufferLength()) / sizeof(int16_t);
-	mPcmBuffer = new int16_t[mPcmBufferSize];
-	memset(mPcmBuffer, (int16_t)0, mPcmBufferSize);
+	mPcmBufferSize = ( AudioInput::BUFFER_COUNT * mInput->getBufferLength() ) / sizeof( int16_t );
+	mPcmBuffer = new int16_t[ mPcmBufferSize ];
+	memset( mPcmBuffer, (int16_t)0, mPcmBufferSize );
 
 	// Set up output file header
 	mFileHeader.siz_wf = mBitsPerSample;
 	mFileHeader.wFormatTag = WAVE_FORMAT_PCM;
 	mFileHeader.nChannels = mChannelCount;
 	mFileHeader.nSamplesPerSec = mSampleRate;
-	mFileHeader.nAvgBytesPerSec = mSampleRate * mChannelCount * sizeof(int16_t);
-	mFileHeader.nBlockAlign = mChannelCount * sizeof(int16_t);
+	mFileHeader.nAvgBytesPerSec = mSampleRate * mChannelCount * sizeof( int16_t );
+	mFileHeader.nBlockAlign = mChannelCount * sizeof( int16_t );
 	mFileHeader.wBitsPerSample = mBitsPerSample;
-	memcpy(mFileHeader.RIFF, "RIFF", 4);
-	memcpy(mFileHeader.WAVE, "WAVE", 4);
-	memcpy(mFileHeader.fmt, "fmt ", 4);
-	memcpy(mFileHeader.data, "data", 4);
+	memcpy( mFileHeader.RIFF, "RIFF", 4 );
+	memcpy( mFileHeader.WAVE, "WAVE", 4 );
+	memcpy( mFileHeader.fmt, "fmt ", 4 );
+	memcpy( mFileHeader.data, "data", 4 );
 
 	// Initialize buffer
 	mData = 0;
 
 	// Start receiving audio
-	mInput->addCallback<WavWriterSampleApp>(&WavWriterSampleApp::onData, this);
+	mInput->addCallback<WavWriterSampleApp>( & WavWriterSampleApp::onData, this );
 	mInput->start();
 
 	// List devices
 	DeviceList mDeviceList = mInput->getDeviceList();
-	for (DeviceList::const_iterator i = mDeviceList.begin(); i != mDeviceList.end(); ++i)
+	for ( DeviceList::const_iterator i = mDeviceList.begin(); i != mDeviceList.end(); ++i ) {
 		console() << "\n" << i->first << ": " << i->second << "\n";
+	}
 
 }
 
@@ -271,8 +271,7 @@ void WavWriterSampleApp::shutdown()
 	mRecording = false;
 
 	// Close file
-	if (mFile.is_open())
-	{
+	if ( mFile.is_open() ) {
 		mFile.flush();
 		mFile.close();
 	}
@@ -281,10 +280,12 @@ void WavWriterSampleApp::shutdown()
 	mInput->stop();
 
 	// Free resources
-	if (mData != 0)
+	if ( mData != 0 ) {
 		delete [] mData;
-	if (mPcmBuffer != 0)
+	}
+	if ( mPcmBuffer != 0 ) {
 		delete [] mPcmBuffer;
+	}
 
 }
 
@@ -293,18 +294,17 @@ void WavWriterSampleApp::writeData()
 {
 
 	// Update header with new PCM length
-	mPcmBufferPosition *= sizeof(int16_t);
+	mPcmBufferPosition *= sizeof( int16_t );
 	mPcmTotalSize += mPcmBufferPosition;
-	mFileHeader.bytes = mPcmTotalSize + sizeof(AudioInput::WAVFILEHEADER);
+	mFileHeader.bytes = mPcmTotalSize + sizeof( AudioInput::WAVFILEHEADER );
 	mFileHeader.pcmbytes = mPcmTotalSize;
 	mFile.seekp(0);
-	mFile.write(reinterpret_cast<char *>(&mFileHeader), sizeof(mFileHeader));
+	mFile.write( reinterpret_cast<char *>( & mFileHeader ), sizeof( mFileHeader ) );
 
 	// Append PCM data
-	if (mPcmBufferPosition > 0)
-	{
-		mFile.seekp(mPcmTotalSize - mPcmBufferPosition + sizeof(AudioInput::WAVFILEHEADER));
-		mFile.write(reinterpret_cast<char *>(mPcmBuffer), mPcmBufferPosition);
+	if ( mPcmBufferPosition > 0 ) {
+		mFile.seekp( mPcmTotalSize - mPcmBufferPosition + sizeof( AudioInput::WAVFILEHEADER ) );
+		mFile.write( reinterpret_cast<char *>( mPcmBuffer ), mPcmBufferPosition );
 	}
 
 	// Reset file buffer position
@@ -313,4 +313,4 @@ void WavWriterSampleApp::writeData()
 }
 
 // Start application
-CINDER_APP_BASIC(WavWriterSampleApp, RendererGl)
+CINDER_APP_BASIC( WavWriterSampleApp, RendererGl )

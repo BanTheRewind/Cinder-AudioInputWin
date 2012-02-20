@@ -1,6 +1,6 @@
 This blocks wraps Windows' multimedia API to provide Cinder
 with low level, reliable access to line and microphone input 
-on Windows
+on Windows.
 
 -----------------------------------------
 

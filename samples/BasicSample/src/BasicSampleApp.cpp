@@ -35,8 +35,8 @@
 */
 
 // Includes
-#include <AudioInput.h>
-#include <cinder/app/AppBasic.h>
+#include "AudioInput.h"
+#include "cinder/app/AppBasic.h"
 
 // Main application
 class BasicSampleApp : public ci::app::AppBasic 
@@ -50,13 +50,13 @@ public:
 	void setup();
 
 	// Audio callback
-	void onData(float * data, int32_t size);
+	void onData( float * data, int32_t size );
 
 private:
 
 	// Audio input
-	AudioInputRef mInput;
-	float * mData;
+	float *			mData;
+	AudioInputRef	mInput;
 
 };
 
@@ -69,28 +69,28 @@ void BasicSampleApp::draw()
 {
 
 	// Clear screen
-	gl::clear(ColorAf::black());
+	gl::clear( ColorAf::black() );
 
 	// We have audio data
-	if (mData != 0)
-	{
+	if ( mData != 0 ) {
 
 		// Get size of data
 		int32_t mDataSize = mInput->getDataSize();
 
 		// Get dimensions
-		float mScale = ((float)getWindowWidth() - 20.0f) / (float)mDataSize;
+		float mScale = ( (float)getWindowWidth() - 20.0f ) / (float)mDataSize;
 		float mWindowHeight = (float)getWindowHeight();
 
 		// Use polyline to depict audio
 		PolyLine<Vec2f> mLine;
 
 		// Iterate through data and populate line
-		for (int32_t i = 0; i < mDataSize; i++) 
-			mLine.push_back(Vec2f(i * mScale + 10.0f, mData[i] * (mWindowHeight - 20.0f) * 0.25f + (mWindowHeight * 0.5f + 10.0f)));
+		for ( int32_t i = 0; i < mDataSize; i++ ) {
+			mLine.push_back( Vec2f( i * mScale + 10.0f, mData[ i ] * ( mWindowHeight - 20.0f ) * 0.25f + ( mWindowHeight * 0.5f + 10.0f ) ) );
+		}
 
 		// Draw signal
-		gl::draw(mLine);
+		gl::draw( mLine );
 
 	}
 
@@ -113,8 +113,9 @@ void BasicSampleApp::quit()
 	mInput->stop();
 
 	// Free resources
-	if (mData != NULL)
+	if ( mData != 0 ) {
 		delete [] mData;
+	}
 
 }
 
@@ -123,23 +124,23 @@ void BasicSampleApp::setup()
 {
 
 	// Set up window
-	setFrameRate(60.0f);
-	setWindowSize(600, 600);
+	setFrameRate( 60.0f );
+	setWindowSize( 600, 600 );
 
 	// Set up line rendering
-	glEnable(GL_LINE_SMOOTH);
-	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-	gl::color(ColorAf::white());
+	gl::enable( GL_LINE_SMOOTH );
+	glHint( GL_LINE_SMOOTH_HINT, GL_NICEST );
+	gl::color( ColorAf::white() );
 
 	// Initialize array
 	mData = 0;
 
 	// Start receiving audio
 	mInput = AudioInput::create();
-	mInput->addCallback<BasicSampleApp>(& BasicSampleApp::onData, this);
+	mInput->addCallback<BasicSampleApp>( & BasicSampleApp::onData, this );
 	mInput->start();
 
 }
 
 // Start application
-CINDER_APP_BASIC(BasicSampleApp, RendererGl)
+CINDER_APP_BASIC( BasicSampleApp, RendererGl )

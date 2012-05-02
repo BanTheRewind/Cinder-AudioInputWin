@@ -166,7 +166,7 @@ void WavWriterSampleApp::keyUp( KeyEvent event )
 			mPcmTotalSize = 0;
 
 			// Open file for streaming
-			mFile.open( getAppPath() + "output.wav", ios::binary | ios::trunc );
+			mFile.open( getAppPath().generic_string() + "output.wav", ios::binary | ios::trunc );
 
 		}
 

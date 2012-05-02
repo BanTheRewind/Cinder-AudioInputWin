@@ -46,7 +46,7 @@ public:
 
 	// Cinder callbacks
 	void draw();
-	void quit();
+	void shutdown();
 	void setup();
 
 	// Audio callback
@@ -106,7 +106,7 @@ void BasicSampleApp::onData(float * data, int32_t size)
 }
 
 // Called on exit
-void BasicSampleApp::quit()
+void BasicSampleApp::shutdown()
 {
 
 	// Stop input

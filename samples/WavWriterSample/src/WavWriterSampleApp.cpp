@@ -54,7 +54,7 @@ public:
 	void shutdown();
 	
 	// Receives input
-	void onData( float * data, int32_t size );
+	void onData( float *data, int32_t size );
 
 	// Writes PCM buffer to file
 	void writeData();
@@ -62,13 +62,13 @@ public:
 private:
 
 	// Audio input
-	float *						mData;
+	float						*mData;
 	AudioInputRef				mInput;
 
 	// File writing
 	std::ofstream				mFile;
 	AudioInput::WAVFILEHEADER	mFileHeader;
-	int16_t *					mPcmBuffer;
+	int16_t						*mPcmBuffer;
 	int32_t						mPcmBufferPosition;
 	int32_t						mPcmBufferSize;
 	uint32_t					mPcmTotalSize;
@@ -162,8 +162,8 @@ void WavWriterSampleApp::keyUp( KeyEvent event )
 		{
 
 			// Set size values
-			mPcmBufferPosition = 0;
-			mPcmTotalSize = 0;
+			mPcmBufferPosition	= 0;
+			mPcmTotalSize		= 0;
 
 			// Open file for streaming
 			mFile.open( getAppPath().generic_string() + "output.wav", ios::binary | ios::trunc );
@@ -178,7 +178,7 @@ void WavWriterSampleApp::keyUp( KeyEvent event )
 }
 
 // Called when buffer is full
-void WavWriterSampleApp::onData( float * data, int32_t size )
+void WavWriterSampleApp::onData( float *data, int32_t size )
 {
 
 	// Get float data
@@ -221,13 +221,18 @@ void WavWriterSampleApp::setup()
 	// oversized text so it looks cleaner)
 	mFont = gl::TextureFont::create( Font( "Tahoma", 96 ) );
 
-	// Define audio settings
-	mBitsPerSample = sizeof(int16_t) * 8;
-	mChannelCount = 2;
-	mSampleRate = 44100;
-
 	// Create audio input
 	mInput = AudioInput::create( mSampleRate, mChannelCount );
+
+	// Bail if no devices present
+	if ( mInput->getDeviceCount() <= 0 ) {
+		return;
+	}
+
+	// Define audio settings
+	mBitsPerSample	= sizeof(int16_t) * 8;
+	mChannelCount	= 2;
+	mSampleRate		= 44100;
 
 	// Set up file stream
 	mRecording = false;
@@ -236,23 +241,23 @@ void WavWriterSampleApp::setup()
 	memset( mPcmBuffer, (int16_t)0, mPcmBufferSize );
 
 	// Set up output file header
-	mFileHeader.siz_wf = mBitsPerSample;
-	mFileHeader.wFormatTag = WAVE_FORMAT_PCM;
-	mFileHeader.nChannels = mChannelCount;
-	mFileHeader.nSamplesPerSec = mSampleRate;
-	mFileHeader.nAvgBytesPerSec = mSampleRate * mChannelCount * sizeof( int16_t );
-	mFileHeader.nBlockAlign = mChannelCount * sizeof( int16_t );
-	mFileHeader.wBitsPerSample = mBitsPerSample;
+	mFileHeader.siz_wf			= mBitsPerSample;
+	mFileHeader.wFormatTag		= WAVE_FORMAT_PCM;
+	mFileHeader.nChannels		= mChannelCount;
+	mFileHeader.nSamplesPerSec	= mSampleRate;
+	mFileHeader.nAvgBytesPerSec	= mSampleRate * mChannelCount * sizeof( int16_t );
+	mFileHeader.nBlockAlign		= mChannelCount * sizeof( int16_t );
+	mFileHeader.wBitsPerSample	= mBitsPerSample;
 	memcpy( mFileHeader.RIFF, "RIFF", 4 );
 	memcpy( mFileHeader.WAVE, "WAVE", 4 );
-	memcpy( mFileHeader.fmt, "fmt ", 4 );
+	memcpy( mFileHeader.fmt,  "fmt ", 4 );
 	memcpy( mFileHeader.data, "data", 4 );
 
 	// Initialize buffer
 	mData = 0;
 
 	// Start receiving audio
-	mInput->addCallback<WavWriterSampleApp>( & WavWriterSampleApp::onData, this );
+	mInput->addCallback<WavWriterSampleApp>( &WavWriterSampleApp::onData, this );
 	mInput->start();
 
 	// List devices
@@ -294,17 +299,17 @@ void WavWriterSampleApp::writeData()
 {
 
 	// Update header with new PCM length
-	mPcmBufferPosition *= sizeof( int16_t );
-	mPcmTotalSize += mPcmBufferPosition;
-	mFileHeader.bytes = mPcmTotalSize + sizeof( AudioInput::WAVFILEHEADER );
-	mFileHeader.pcmbytes = mPcmTotalSize;
-	mFile.seekp(0);
-	mFile.write( reinterpret_cast<char *>( & mFileHeader ), sizeof( mFileHeader ) );
+	mPcmBufferPosition		*= sizeof( int16_t );
+	mPcmTotalSize			+= mPcmBufferPosition;
+	mFileHeader.bytes		= mPcmTotalSize + sizeof( AudioInput::WAVFILEHEADER );
+	mFileHeader.pcmbytes	= mPcmTotalSize;
+	mFile.seekp( 0 );
+	mFile.write( reinterpret_cast<int_fast8_t*>( &mFileHeader ), sizeof( mFileHeader ) );
 
 	// Append PCM data
 	if ( mPcmBufferPosition > 0 ) {
 		mFile.seekp( mPcmTotalSize - mPcmBufferPosition + sizeof( AudioInput::WAVFILEHEADER ) );
-		mFile.write( reinterpret_cast<char *>( mPcmBuffer ), mPcmBufferPosition );
+		mFile.write( reinterpret_cast<int_fast8_t*>( mPcmBuffer ), mPcmBufferPosition );
 	}
 
 	// Reset file buffer position

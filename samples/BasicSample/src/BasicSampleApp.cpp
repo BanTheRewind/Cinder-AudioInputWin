@@ -50,12 +50,12 @@ public:
 	void setup();
 
 	// Audio callback
-	void onData( float * data, int32_t size );
+	void onData( float *data, int32_t size );
 
 private:
 
 	// Audio input
-	float *			mData;
+	float			*mData;
 	AudioInputRef	mInput;
 
 };
@@ -97,12 +97,9 @@ void BasicSampleApp::draw()
 }
 
 // Called when buffer is full
-void BasicSampleApp::onData(float * data, int32_t size)
+void BasicSampleApp::onData( float *data, int32_t size )
 {
-
-	// Get data
 	mData = data;
-
 }
 
 // Called on exit
@@ -135,10 +132,23 @@ void BasicSampleApp::setup()
 	// Initialize array
 	mData = 0;
 
-	// Start receiving audio
+	// Create audio input
 	mInput = AudioInput::create();
-	mInput->addCallback<BasicSampleApp>( & BasicSampleApp::onData, this );
+
+	// Bail if no devices present
+	if ( mInput->getDeviceCount() <= 0 ) {
+		return;
+	}
+
+	// Start receiving audio
+	mInput->addCallback<BasicSampleApp>( &BasicSampleApp::onData, this );
 	mInput->start();
+
+	// List devices
+	DeviceList devices = mInput->getDeviceList();
+	for ( DeviceList::const_iterator deviceIt = devices.begin(); deviceIt != devices.end(); ++deviceIt ) {
+		console() << deviceIt->second << std::endl;
+	}
 
 }
 

@@ -82,26 +82,32 @@ AudioInputT<T>::~AudioInputT()
 		stop();
 	}
 
+	// Disconnect signals
+	for ( CallbackList::iterator callbackIt = mCallbacks.begin(); callbackIt != mCallbacks.end(); ++callbackIt ) {
+		if ( callbackIt->second->connected() ) {
+			callbackIt->second->disconnect();
+		}
+	}
+
 	// Clear vectors
 	mCallbacks.clear();
 	mHeaderBuffers.clear();
 	mInputBuffers.clear();
-
 }
 
 // Add callback and return its ID
 template<typename T> 
-int32_t AudioInputT<T>::addCallback( const boost::function<void ( float *, int32_t )> & callback )
+int32_t AudioInputT<T>::addCallback( const boost::function<void ( float*, int32_t )> &callback )
 {
 
 	// Determine return ID
-	int32_t mCallbackID = mCallbacks.empty() ? 0 : mCallbacks.rbegin()->first + 1;
+	int32_t callbackID = mCallbacks.empty() ? 0 : mCallbacks.rbegin()->first + 1;
 
 	// Create callback and add it to the list
-	mCallbacks.insert( std::make_pair( mCallbackID, CallbackRef( new Callback( mSignal.connect( callback ) ) ) ) );
+	mCallbacks.insert( std::make_pair( callbackID, CallbackRef( new Callback( mSignal.connect( callback ) ) ) ) );
 
 	// Return callback ID
-	return mCallbackID;
+	return callbackID;
 
 }
 
@@ -147,7 +153,7 @@ DeviceList AudioInputT<T>::getDeviceList()
 		for ( int32_t i = 0; i < mDeviceCount; i++ ) {
 
 			// Get device
-			WAVEINCAPS * device = new WAVEINCAPS();
+			WAVEINCAPS* device = new WAVEINCAPS();
 			::waveInGetDevCaps( (UINT_PTR)i, device, sizeof( WAVEINCAPS ) );
 
 			// Get device name
@@ -171,7 +177,7 @@ DeviceList AudioInputT<T>::getDeviceList()
 
 // Normalize audio buffer
 template<typename T> 
-float * AudioInputT<T>::getNormalBuffer()
+float* AudioInputT<T>::getNormalBuffer()
 {
 
 	// Bail if there's no data to convert
@@ -221,11 +227,11 @@ void AudioInputT<T>::receiveMessage( tagMSG message )
 		if ( mReceiving ) {
 
 			// Check for pointer to wave header
-			if ( ( ( wavehdr_tag * )message.lParam )->dwBytesRecorded ) {
+			if ( ( (wavehdr_tag*)message.lParam )->dwBytesRecorded ) {
 
 				// Update buffer
-				mBufferSize = (int32_t)( (unsigned long)( (wavehdr_tag *)message.lParam )->dwBytesRecorded / sizeof( T ) );
-				mBuffer = ( T * )( (wavehdr_tag *)message.lParam )->lpData;
+				mBufferSize = (int32_t)( (unsigned long)( (wavehdr_tag*)message.lParam )->dwBytesRecorded / sizeof( T ) );
+				mBuffer = (T*)( (wavehdr_tag*)message.lParam )->lpData;
 
 				// Execute callbacks
 				mSignal( getNormalBuffer(), mBufferSize );
@@ -233,7 +239,7 @@ void AudioInputT<T>::receiveMessage( tagMSG message )
 			}
 
 			// Re-use buffer
-			::waveInAddBuffer( mDeviceHnd, ( (wavehdr_tag *)message.lParam ), sizeof( wavehdr_tag ) );
+			::waveInAddBuffer( mDeviceHnd, ( (wavehdr_tag*)message.lParam ), sizeof( wavehdr_tag ) );
 
 		} else {
 
@@ -308,20 +314,20 @@ void AudioInputT<T>::start()
 	if ( !mReceiving ) {
 
 		// Set up PCM format
-		mWavFormat.wFormatTag = WAVE_FORMAT_PCM;
-		mWavFormat.nChannels = mChannelCount;
-		mWavFormat.nSamplesPerSec =	mSampleRate;
-		mWavFormat.nAvgBytesPerSec = mSampleRate * mChannelCount * sizeof( T );
-		mWavFormat.nBlockAlign = mChannelCount * sizeof( T );
-		mWavFormat.wBitsPerSample = mBitsPerSample;
+		mWavFormat.wFormatTag		= WAVE_FORMAT_PCM;
+		mWavFormat.nChannels		= mChannelCount;
+		mWavFormat.nSamplesPerSec	= mSampleRate;
+		mWavFormat.nAvgBytesPerSec	= mSampleRate * mChannelCount * sizeof( T );
+		mWavFormat.nBlockAlign		= mChannelCount * sizeof( T );
+		mWavFormat.wBitsPerSample	= mBitsPerSample;
 		mWavFormat.cbSize = 0;
 
 		// Set flag
-		mReceiving = true;
+		mReceiving		= true;
 
 		// Initialize buffers
-		mBuffer = 0;
-		mNormalBuffer = 0;
+		mBuffer			= 0;
+		mNormalBuffer	= 0;
 
 		// Start callback thread
 		unsigned long threadID;
@@ -346,12 +352,12 @@ void AudioInputT<T>::start()
 			mInputBuffers.push_back( new wavehdr_tag() );
 
 			// Set up header
-			mInputBuffers[ i ]->dwBufferLength = mBufferLength * sizeof( T );
-			mInputBuffers[ i ]->lpData = (LPSTR)mHeaderBuffers[ i ];
-			mInputBuffers[ i ]->dwBytesRecorded = 0;
-			mInputBuffers[ i ]->dwUser = 0L;
-			mInputBuffers[ i ]->dwFlags = 0L;
-			mInputBuffers[ i ]->dwLoops = 0L;
+			mInputBuffers[ i ]->dwBufferLength	= mBufferLength * sizeof( T );
+			mInputBuffers[ i ]->lpData			= (LPSTR)mHeaderBuffers[ i ];
+			mInputBuffers[ i ]->dwBytesRecorded	= 0;
+			mInputBuffers[ i ]->dwUser			= 0L;
+			mInputBuffers[ i ]->dwFlags			= 0L;
+			mInputBuffers[ i ]->dwLoops			= 0L;
 
 			// Add buffer to input device
 			mResultHnd = ::waveInPrepareHeader( mDeviceHnd, mInputBuffers[ i ], sizeof( wavehdr_tag ) );
@@ -407,11 +413,11 @@ void AudioInputT<T>::stop()
 
 // Multimedia API callback
 template<typename T> 
-unsigned long __stdcall AudioInputT<T>::waveInProc( void far * arg )
+unsigned long __stdcall AudioInputT<T>::waveInProc( void far *arg )
 {
 
 	// Get instance
-	AudioInputT<T> * instance = (AudioInputT<T> *) arg;
+	AudioInputT<T>* instance = (AudioInputT<T>*) arg;
 
 	// Get message from thread
 	tagMSG message;

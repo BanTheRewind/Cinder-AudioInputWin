@@ -100,11 +100,11 @@ public:
 	void stop();
 
 	// Callbacks
-	int32_t		addCallback( const boost::function<void ( float *, int32_t )> & callback );
+	int32_t		addCallback( const boost::function<void ( float*, int32_t )> & callback );
 	template<typename U> 
-	int32_t		addCallback( void ( U::* callbackFunction )( float * data, int32_t size ), U * callbackObject ) 
+	int32_t		addCallback( void ( U::*callbackFunction )( float *data, int32_t size ), U *callbackObject ) 
 	{
-		return addCallback( boost::function<void ( float *, int32_t )>( boost::bind( callbackFunction, callbackObject, ::_1, ::_2 ) ) );
+		return addCallback( boost::function<void ( float*, int32_t )>( boost::bind( callbackFunction, callbackObject, ::_1, ::_2 ) ) );
 	}
 	void		removeCallback( int32_t callbackID );
 
@@ -124,7 +124,7 @@ public:
 	{ 
 		return mChannelCount; 
 	}
-	T *			getData() 
+	T*			getData() 
 	{ 
 		return mBuffer; 
 	}
@@ -137,7 +137,7 @@ public:
 		return mDeviceCount; 
 	}
 	DeviceList	getDeviceList();
-	float *		getNormalizedData() 
+	float*		getNormalizedData() 
 	{ 
 		return mNormalBuffer; 
 	}
@@ -154,13 +154,13 @@ public:
 	void	setDevice( int32_t deviceId );
 
 	// Multimedia API callback
-	static unsigned long __stdcall waveInProc( void far * arg );
+	static unsigned long __stdcall waveInProc( void far *arg );
 
 private:
 
 	// Constants
-	static const uint32_t BUFFER_LENGTH =		1024;
-	static const uint32_t MESSAGE_BUFFER_SIZE =	256;
+	static const uint32_t BUFFER_LENGTH			= 1024;
+	static const uint32_t MESSAGE_BUFFER_SIZE	= 256;
 
 	// Callback aliases
 	typedef boost::signals2::connection			Callback;
@@ -177,20 +177,20 @@ private:
 
 	// The current audio buffer
 	int32_t			mBufferLength;
-	T *				mBuffer;
+	T				*mBuffer;
 	uint_least8_t	mBuffersComplete;
 	int32_t			mBufferSize;
 	void			receiveMessage( tagMSG message );
 
 	// Buffer for analyzing audio
-	float *			getNormalBuffer();
-	float *			mNormalBuffer;
+	float			*getNormalBuffer();
+	float			*mNormalBuffer;
 
 	// Windows multimedia API
-	std::vector<T *>			mHeaderBuffers;
-	std::vector<wavehdr_tag *>	mInputBuffers;
+	std::vector<T*>				mHeaderBuffers;
+	std::vector<wavehdr_tag*>	mInputBuffers;
 	MMRESULT					mResultHnd;
-	void *						mWaveInThread;
+	void						*mWaveInThread;
 	tWAVEFORMATEX				mWavFormat;
 
 	// WAV format
@@ -199,7 +199,7 @@ private:
 	int32_t						mSampleRate;
 
 	// Callback list
-	boost::signals2::signal<void ( float *, int32_t )>	mSignal;
+	boost::signals2::signal<void ( float*, int32_t )>	mSignal;
 	CallbackList										mCallbacks;
 
 	// Device list

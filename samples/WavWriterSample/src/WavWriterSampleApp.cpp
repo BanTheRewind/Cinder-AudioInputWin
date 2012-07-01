@@ -222,11 +222,21 @@ void WavWriterSampleApp::setup()
 	mFont = gl::TextureFont::create( Font( "Tahoma", 96 ) );
 
 	// Create audio input
-	mInput = AudioInput::create( mSampleRate, mChannelCount );
+	mInput = AudioInput::create();
 
 	// Bail if no devices present
 	if ( mInput->getDeviceCount() <= 0 ) {
 		return;
+	}
+
+	// Start receiving audio
+	mInput->addCallback<WavWriterSampleApp>( &WavWriterSampleApp::onData, this );
+	mInput->start();
+
+	// List devices
+	DeviceList devices = mInput->getDeviceList();
+	for ( DeviceList::const_iterator deviceIt = devices.begin(); deviceIt != devices.end(); ++deviceIt ) {
+		console() << deviceIt->second << std::endl;
 	}
 
 	// Define audio settings
@@ -255,16 +265,6 @@ void WavWriterSampleApp::setup()
 
 	// Initialize buffer
 	mData = 0;
-
-	// Start receiving audio
-	mInput->addCallback<WavWriterSampleApp>( &WavWriterSampleApp::onData, this );
-	mInput->start();
-
-	// List devices
-	DeviceList mDeviceList = mInput->getDeviceList();
-	for ( DeviceList::const_iterator i = mDeviceList.begin(); i != mDeviceList.end(); ++i ) {
-		console() << "\n" << i->first << ": " << i->second << "\n";
-	}
 
 }
 

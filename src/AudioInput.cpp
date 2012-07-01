@@ -70,6 +70,9 @@ AudioInputT<T>::AudioInputT( int32_t sampleRate, int32_t channelCount, int32_t b
 	mDeviceCount = -1;
 	mLocale = std::locale( "" ); // Uses system's default language for UTF encoding
 
+	// Initialize device list
+	getDeviceList();
+
 }
 
 // Destructor

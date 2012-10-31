@@ -141,7 +141,7 @@ void BasicSampleApp::setup()
 	}
 
 	// Start receiving audio
-	mInput->addCallback<BasicSampleApp>( &BasicSampleApp::onData, this );
+	mInput->addCallback( &BasicSampleApp::onData, this );
 	mInput->start();
 
 	// List devices

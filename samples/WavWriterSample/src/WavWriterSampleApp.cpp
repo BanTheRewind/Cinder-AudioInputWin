@@ -230,7 +230,7 @@ void WavWriterSampleApp::setup()
 	}
 
 	// Start receiving audio
-	mInput->addCallback<WavWriterSampleApp>( &WavWriterSampleApp::onData, this );
+	mInput->addCallback( &WavWriterSampleApp::onData, this );
 	mInput->start();
 
 	// List devices

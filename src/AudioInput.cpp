@@ -79,7 +79,6 @@ AudioInputT<T>::AudioInputT( int32_t sampleRate, int32_t channelCount, int32_t b
 template<typename T> 
 AudioInputT<T>::~AudioInputT()
 {
-
 	// Stop
 	if ( mReceiving ) {
 		stop();
@@ -96,22 +95,6 @@ AudioInputT<T>::~AudioInputT()
 	mCallbacks.clear();
 	mHeaderBuffers.clear();
 	mInputBuffers.clear();
-}
-
-// Add callback and return its ID
-template<typename T> 
-int32_t AudioInputT<T>::addCallback( const boost::function<void ( float*, int32_t )> &callback )
-{
-
-	// Determine return ID
-	int32_t callbackID = mCallbacks.empty() ? 0 : mCallbacks.rbegin()->first + 1;
-
-	// Create callback and add it to the list
-	mCallbacks.insert( std::make_pair( callbackID, CallbackRef( new Callback( mSignal.connect( callback ) ) ) ) );
-
-	// Return callback ID
-	return callbackID;
-
 }
 
 // Check for and print error
@@ -160,7 +143,7 @@ DeviceList AudioInputT<T>::getDeviceList()
 			::waveInGetDevCaps( (UINT_PTR)i, device, sizeof( WAVEINCAPS ) );
 
 			// Get device name
-			memset( mDeviceName, 0, sizeof(mDeviceName ) );
+			memset( mDeviceName, 0, sizeof( mDeviceName ) );
 			use_facet<ctype<wchar_t> >( mLocale ).narrow( device->szPname, device->szPname + wcslen( device->szPname ), 'X', & mDeviceName[ 0 ] );
 
 			// Add device to list

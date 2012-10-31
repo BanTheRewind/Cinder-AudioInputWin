@@ -100,11 +100,12 @@ public:
 	void stop();
 
 	// Callbacks
-	int32_t		addCallback( const boost::function<void ( float*, int32_t )> & callback );
-	template<typename U> 
-	int32_t		addCallback( void ( U::*callbackFunction )( float *data, int32_t size ), U *callbackObject ) 
+	template<typename T, typename Y> 
+	inline uint32_t	addCallback( T callback, Y *callbackObject )
 	{
-		return addCallback( boost::function<void ( float*, int32_t )>( boost::bind( callbackFunction, callbackObject, ::_1, ::_2 ) ) );
+		uint32_t id = mCallbacks.empty() ? 0 : mCallbacks.rbegin()->first + 1;
+		mCallbacks.insert( std::make_pair( id, CallbackRef( new Callback( mSignal.connect( std::bind( callback, callbackObject, std::placeholders::_1, std::placeholders::_2 ) ) ) ) ) );
+		return id;
 	}
 	void		removeCallback( int32_t callbackID );
 

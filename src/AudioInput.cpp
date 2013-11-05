@@ -1,6 +1,6 @@
 /*
 * 
-* Copyright (c) 2012, Ban the Rewind
+* Copyright (c) 2013, Ban the Rewind
 * All rights reserved.
 * 
 * Redistribution and use in source and binary forms, with or 
@@ -34,396 +34,289 @@
 * 
 */
 
-// Include header
 #include "AudioInput.h"
 
-using namespace ci;
+#include <ppl.h>
+
 using namespace std;
 
-// Creates pointer to instance
 template<typename T> 
 std::shared_ptr<AudioInputT<T> > AudioInputT<T>::create( int32_t sampleRate, int32_t channelCount, int32_t bufferLength )
 {
 	return std::shared_ptr<AudioInputT<T> >( new AudioInputT<T>( sampleRate, channelCount, bufferLength ) );
 }
 
-// Constructor
-// NOTE: Make this public to build instance
-// directly on the stack (advanced)
 template<typename T> 
 AudioInputT<T>::AudioInputT( int32_t sampleRate, int32_t channelCount, int32_t bufferLength )
+: mBitsPerSample( sizeof(T)* 8 ), mBuffer( 0 ), mBufferLength( bufferLength ), 
+mBufferSize( 0 ), mBuffersRead( false ), mChannelCount( channelCount ), mDevice( 0 ), 
+mDeviceCount( 0 ), mDeviceIndex( 0 ), mEventHandler( nullptr ), mLocale( std::locale( "" ) ), 
+mNormalBuffer( 0 ), mReceiving( false ), mSampleRate( sampleRate ), mThread( 0 )
 {
-
-	// Initialize flag
-	mReceiving = false;
-
-	// Set buffer length
-	mBufferLength = bufferLength;
-
-	// Set parameters
-	mBitsPerSample = sizeof( T ) * 8;
-	mChannelCount = channelCount;
-	mSampleRate = sampleRate;
-
-	// Initialize device list
-	mDeviceId = 0;
-	mDeviceCount = -1;
-	mLocale = std::locale( "" ); // Uses system's default language for UTF encoding
-
-	// Initialize device list
 	getDeviceList();
-
 }
 
-// Destructor
 template<typename T> 
 AudioInputT<T>::~AudioInputT()
 {
-	// Stop
-	if ( mReceiving ) {
-		stop();
-	}
-
-	// Disconnect signals
-	for ( CallbackList::iterator callbackIt = mCallbacks.begin(); callbackIt != mCallbacks.end(); ++callbackIt ) {
-		if ( callbackIt->second->connected() ) {
-			callbackIt->second->disconnect();
+	stop();
+	for ( size_t i = 0; i < mBuffers.size(); ++i ) {
+		if ( mBuffers[ i ] != 0 ) {
+			delete [] mBuffers[ i ];
+			mBuffers[ i ] = 0;
 		}
 	}
-
-	// Clear vectors
-	mCallbacks.clear();
-	mHeaderBuffers.clear();
-	mInputBuffers.clear();
-}
-
-// Check for and print error
-template<typename T> 
-bool AudioInputT<T>::error()
-{
-
-	// Error occurred
-	if ( mResultHnd ) {
-
-		// Report error
-		memset( mError, 0, MESSAGE_BUFFER_SIZE );
-		::waveInGetErrorTextA( mResultHnd, mError, MESSAGE_BUFFER_SIZE );
-		OutputDebugStringA( mError );
-		OutputDebugStringA( "\n" );
-		mResultHnd = 0;
-		return true;
-
+	for ( size_t i = 0; i < mHeaders.size(); ++i ) {
+		if ( mHeaders[ i ] != 0 ) {
+			delete mHeaders[ i ];
+			mHeaders[ i ] = 0;
+		}
 	}
+	mBuffers.clear();
+	mHeaders.clear();
 
-	// No error
-	return false;
-
+	if ( mNormalBuffer != 0 ) {
+		delete [] mNormalBuffer;
+		mNormalBuffer = 0;
+	}
 }
 
-// Retrieve device list
 template<typename T> 
-DeviceList AudioInputT<T>::getDeviceList()
+int32_t AudioInputT<T>::getBitsPerSample() const
+{ 
+	return mBitsPerSample; 
+}
+
+template<typename T> 
+int32_t AudioInputT<T>::getBufferLength() const
+{ 
+	return mBufferLength; 
+}
+
+template<typename T> 
+int32_t AudioInputT<T>::getChannelCount() const
+{ 
+	return mChannelCount; 
+}
+
+template<typename T> 
+T* AudioInputT<T>::getData() const
+{ 
+	return mBuffer; 
+}
+
+template<typename T> 
+int32_t AudioInputT<T>::getDataSize() const
+{ 
+	return mHeadersize; 
+}
+
+template<typename T> 
+int32_t AudioInputT<T>::getDeviceCount() const
+{ 
+	return mDeviceCount; 
+}
+
+template<typename T> 
+const vector<string>& AudioInputT<T>::getDeviceNames() const
 {
-
-	// Get device count
-	int32_t deviceCount = (int32_t)::waveInGetNumDevs();
-
-	// Skip routine if device count hasn't changed
+	size_t deviceCount = waveInGetNumDevs();
 	if ( mDeviceCount != deviceCount ) {
-
-		// Update device count
 		mDeviceCount = deviceCount;
-
-		// Build new list
-		mDeviceList.clear();
-		for ( int32_t i = 0; i < mDeviceCount; i++ ) {
-
-			// Get device
+		mDeviceNames.clear();
+		for ( int32_t i = 0; i < deviceCount; ++i ) {
 			WAVEINCAPS* device = new WAVEINCAPS();
-			::waveInGetDevCaps( (UINT_PTR)i, device, sizeof( WAVEINCAPS ) );
-
-			// Get device name
-			memset( mDeviceName, 0, sizeof( mDeviceName ) );
-			use_facet<ctype<wchar_t> >( mLocale ).narrow( device->szPname, device->szPname + wcslen( device->szPname ), 'X', & mDeviceName[ 0 ] );
-
-			// Add device to list
-			mDeviceList.insert( std::make_pair( i, string( mDeviceName ) ) );
-
-			// Clean up
+			waveInGetDevCaps( (UINT_PTR)i, device, sizeof( WAVEINCAPS ) );
+			int_fast8_t deviceName[ 32 ];
+			memset( deviceName, 0, sizeof( deviceName ) );
+			use_facet<ctype<wchar_t> >( mLocale ).narrow( device->szPname, device->szPname + wcslen( device->szPname ), 'X', &deviceName[ 0 ] );
+			mDeviceNames.push_back( deviceName ) );
 			delete device;
-
 		}
-
 	}
-
-	// Return list
 	return mDeviceList;
-
 }
 
-// Normalize audio buffer
 template<typename T> 
-float* AudioInputT<T>::getNormalBuffer()
-{
-
-	// Bail if there's no data to convert
-	if ( mBuffer == 0 ) {
-		return 0;
-	}
-
-	// Create buffer, if needed
-	if ( mNormalBuffer == 0 ) {
-		mNormalBuffer = new float[ mBufferSize ];
-	}
-
-	// Normalize data for analysis
-	switch ( mBitsPerSample ) {
-	case 8: 
-		Concurrency::parallel_for( 0, mBufferSize, [ = ]( int32_t i ) {
-			mNormalBuffer[ i ] = (float)( mBuffer[ i ] / ( 1.0 * 0x80 ) - 1.0 );
-		} );
-		break;
-	case 16: 
-		Concurrency::parallel_for( 0, mBufferSize, [ = ]( int32_t i ) {
-			mNormalBuffer[ i ] = (float)( mBuffer[ i ] / ( 1.0 * 0x8000 ) );
-		} );
-		break;
-	case 32: 
-		Concurrency::parallel_for( 0, mBufferSize, [ = ]( int32_t i ) {
-			mNormalBuffer[ i ] = (float)( mBuffer[ i ] / (8.0 * 0x10000000 ) );
-		} );
-		break;
-	}
-
-	// Return normalized buffer
-	return mNormalBuffer;
-
+float* AudioInputT<T>::getNormalizedData() const
+{ 
+	return mNormalBuffer; 
 }
 
-// Receives buffer from multimedia API
+template<typename T> 
+int32_t AudioInputT<T>::getSampleRate() const
+{ 
+	return mSampleRate; 
+}
+
+template<typename T> 
+bool AudioInputT<T>::isReceiving() const
+{ 
+	return mReceiving; 
+}
+
 template<typename T> 
 void AudioInputT<T>::receiveMessage( tagMSG message )
 {
-
-	// Read message
 	switch ( message.message ) {
 	case MM_WIM_DATA:
-
-		// Check receiving flag
 		if ( mReceiving ) {
-
-			// Check for pointer to wave header
 			if ( ( (wavehdr_tag*)message.lParam )->dwBytesRecorded ) {
+				mBufferSize	= (size_t)( (unsigned long)( (wavehdr_tag*)message.lParam )->dwBytesRecorded / sizeof( T ) );
+				mBuffer		= (T*)( (wavehdr_tag*)message.lParam )->lpData;
+				
+				if ( mBuffer != 0 ) {
+					if ( mNormalBuffer == 0 ) {
+						mNormalBuffer = new float[ mBufferSize ];
+					}
+					switch ( mBitsPerSample ) {
+					case 8: 
+						Concurrency::parallel_for( 0, mBufferSize, [ = ]( int32_t i ) {
+							mNormalBuffer[ i ] = (float)( mBuffer[ i ] / ( 1.0 * 0x80 ) - 1.0 );
+						} );
+						break;
+					case 16: 
+						Concurrency::parallel_for( 0, mBufferSize, [ = ]( int32_t i ) {
+							mNormalBuffer[ i ] = (float)( mBuffer[ i ] / ( 1.0 * 0x8000 ) );
+						} );
+						break;
+					case 32: 
+						Concurrency::parallel_for( 0, mBufferSize, [ = ]( int32_t i ) {
+							mNormalBuffer[ i ] = (float)( mBuffer[ i ] / ( 8.0 * 0x10000000 ) );
+						} );
+						break;
+					}
 
-				// Update buffer
-				mBufferSize = (int32_t)( (unsigned long)( (wavehdr_tag*)message.lParam )->dwBytesRecorded / sizeof( T ) );
-				mBuffer = (T*)( (wavehdr_tag*)message.lParam )->lpData;
-
-				// Execute callbacks
-				mSignal( getNormalBuffer(), mBufferSize );
-
+					if ( mEventHandler != nullptr ) {
+						mEventHandler( mNormalBuffer, mBufferSize );
+					}
+				}
 			}
-
-			// Re-use buffer
-			::waveInAddBuffer( mDeviceHnd, ( (wavehdr_tag*)message.lParam ), sizeof( wavehdr_tag ) );
-
+			::waveInAddBuffer( mDevice, ( (wavehdr_tag*)message.lParam ), sizeof( wavehdr_tag ) );
 		} else {
-
-			// Mark buffer complete
-			++mBuffersComplete;
-
+			++mBuffersRead;
 		}
-
 		break;
 	case MM_WIM_OPEN:
-
-		// Reset complete count if main thread is opening the device
-		mBuffersComplete = 0;
-
+		mBuffersRead = 0;
 		break;
-
 	}
-
 }
 
-// Remove callback by ID
 template<typename T> 
-void AudioInputT<T>::removeCallback( int32_t callbackID )
+void AudioInputT<T>::setDevice( size_t index )
 {
-
-	// Disconnect the callback connection
-	mCallbacks.find( callbackID )->second->disconnect();
-
-	// Remove the callback from the list
-	mCallbacks.erase( callbackID ); 
-
-}
-
-// Select device
-template<typename T> 
-void AudioInputT<T>::setDevice( int32_t deviceID )
-{
-
-	// New device ID must be less than the number of devices
-	// and different from current ID
-	if ( deviceID >= 0 && deviceID < mDeviceCount && deviceID != mDeviceId ) {
-
-		// Stop input if we're currently receiving
+	if ( index < mDeviceCount && index != mDeviceIndex ) {
 		bool receiving = mReceiving;
 		if ( receiving ) { 
 			stop();
 		}
-
-		// Switch device ID 
-		mDeviceId = deviceID;
-
-		// Restart if we were receiving audio
+		mDeviceIndex = index;
 		if ( receiving ) { 
 			start();
 		}
-
 	}
-
 }
 
-// Start audio input
 template<typename T> 
 void AudioInputT<T>::start()
 {
+	stop();
+	if ( !mReceiving && mDeviceCount > 0 ) {
+		tWAVEFORMATEX waveFormat;
+		waveFormat.wFormatTag		= WAVE_FORMAT_PCM;
+		waveFormat.nChannels		= mChannelCount;
+		waveFormat.nSamplesPerSec	= mSampleRate;
+		waveFormat.nAvgBytesPerSec	= mSampleRate * mChannelCount * sizeof( T );
+		waveFormat.nBlockAlign		= mChannelCount * sizeof( T );
+		waveFormat.wBitsPerSample	= mBitsPerSample;
+		waveFormat.cbSize			= 0;
 
-	// Stop playback if we're already receiving
-	if ( mReceiving ) {
-		stop();
-	}
-
-	// Check receiving flag
-	if ( !mReceiving ) {
-
-		// Set up PCM format
-		mWavFormat.wFormatTag		= WAVE_FORMAT_PCM;
-		mWavFormat.nChannels		= mChannelCount;
-		mWavFormat.nSamplesPerSec	= mSampleRate;
-		mWavFormat.nAvgBytesPerSec	= mSampleRate * mChannelCount * sizeof( T );
-		mWavFormat.nBlockAlign		= mChannelCount * sizeof( T );
-		mWavFormat.wBitsPerSample	= mBitsPerSample;
-		mWavFormat.cbSize = 0;
-
-		// Set flag
-		mReceiving		= true;
-
-		// Initialize buffers
 		mBuffer			= 0;
 		mNormalBuffer	= 0;
+		mReceiving		= true;
 
-		// Start callback thread
-		unsigned long threadID;
-		mWaveInThread = CreateThread( 0, 0, (LPTHREAD_START_ROUTINE)AudioInputT<T>::waveInProc, (PVOID)this, 0, & threadID );
-		if ( !mWaveInThread ) { 
+		unsigned long threadId;
+		mThread = CreateThread( 0, 0, (LPTHREAD_START_ROUTINE)AudioInputT<T>::waveInProc, (void*)this, 0, &threadId );
+		if ( !mThread ) { 
 			return;
 		}
-		CloseHandle( mWaveInThread );
+		CloseHandle( mThread );
 
-		// Open input device
-		mResultHnd = ::waveInOpen( & mDeviceHnd, mDeviceId, & mWavFormat, threadID, 0, CALLBACK_THREAD );
-		if ( error() ) { 
+		if ( !success( waveInOpen( &mDevice, mDeviceIndex, &waveFormat, threadId, 0, CALLBACK_THREAD ) ) ) { 
 			return;
 		}
 
-		// Prepare buffers
-		mBuffersComplete = 0;
-		for ( int32_t i = 0; i < BUFFER_COUNT; i++ )  {
+		mBuffersRead = 0;
+		for ( int32_t i = 0; i < BUFFER_COUNT; ++i )  {
+			mBuffers.push_back( new T[ mBufferLength * sizeof( T ) ] ) );
+			mHeaders.push_back( new wavehdr_tag() );
+			
+			mHeaders[ i ]->dwBufferLength	= mBufferLength * sizeof( T );
+			mHeaders[ i ]->lpData			= (LPSTR)mBuffers[ i ].mData;
+			mHeaders[ i ]->dwBytesRecorded	= 0;
+			mHeaders[ i ]->dwUser			= 0L;
+			mHeaders[ i ]->dwFlags			= 0L;
+			mHeaders[ i ]->dwLoops			= 0L;
 
-			// Create buffers
-			mHeaderBuffers.push_back( new T[ mBufferLength * sizeof( T ) ] );
-			mInputBuffers.push_back( new wavehdr_tag() );
-
-			// Set up header
-			mInputBuffers[ i ]->dwBufferLength	= mBufferLength * sizeof( T );
-			mInputBuffers[ i ]->lpData			= (LPSTR)mHeaderBuffers[ i ];
-			mInputBuffers[ i ]->dwBytesRecorded	= 0;
-			mInputBuffers[ i ]->dwUser			= 0L;
-			mInputBuffers[ i ]->dwFlags			= 0L;
-			mInputBuffers[ i ]->dwLoops			= 0L;
-
-			// Add buffer to input device
-			mResultHnd = ::waveInPrepareHeader( mDeviceHnd, mInputBuffers[ i ], sizeof( wavehdr_tag ) );
-			if ( error() ) { 
+			if ( !success( waveInPrepareHeader( mDevice, mHeaders[ i ], sizeof( wavehdr_tag ) ) ) ) { 
 				return;
 			}
-			mResultHnd = ::waveInAddBuffer( mDeviceHnd, mInputBuffers[ i ], sizeof( wavehdr_tag ) );
-			if ( error() ) { 
+			if ( !success( waveInAddBuffer( mDevice, mHeaders[ i ], sizeof( wavehdr_tag ) ) ) { 
 				return;
 			}
-
 		}
-
-		// Start input
-		mResultHnd = ::waveInStart( mDeviceHnd );
-		if ( error() ) { 
+		if ( !success( waveInStart( mDevice ) ) ) { 
 			mReceiving = false;
 		}
-
 	}
-
 }
 
-// Stop audio input
 template<typename T> 
 void AudioInputT<T>::stop()
 {
-
-	// Check receiving flag
 	if ( mReceiving ) {
-
-		// Turn off flags
 		mReceiving = false;
-
-		// Release buffers
-		for ( int32_t i = 0; i < BUFFER_COUNT; i++ ) {
-			mResultHnd = ::waveInUnprepareHeader( (HWAVEIN)mDeviceId, (LPWAVEHDR)(& ( mInputBuffers[ i ] ) ), sizeof( wavehdr_tag ) );
+		for ( int32_t i = 0; i < BUFFER_COUNT; ++i ) {
+			waveInUnprepareHeader( (HWAVEIN)mDeviceIndex, (LPWAVEHDR)( &mHeaders[ i ] ), sizeof( wavehdr_tag ) );
 		}
-
-		// Close input device
-		mResultHnd = ::waveInReset( (HWAVEIN)mDeviceId );
-		if ( error() ) { 
+		if ( !success( waveInReset( (HWAVEIN)mDeviceIndex ) ) ) { 
 			return;
 		}
-		mResultHnd = ::waveInClose( (HWAVEIN)mDeviceId );
-		if ( error() ) { 
+		if ( !success( waveInClose( (HWAVEIN)mDeviceIndex ) ) ) { 
 			return;
 		}
-
 	}
-
 }
 
-// Multimedia API callback
+template<typename T> 
+bool AudioInputT<T>::success( MMRESULT hr )
+{
+	if ( hr ) {
+		int_fast8_t err[ MESSAGE_BUFFER_SIZE ];
+		err[ MESSAGE_BUFFER_SIZE - 1 ] = 0;
+		::waveInGetErrorTextA( hr, err, MESSAGE_BUFFER_SIZE );
+		OutputDebugStringA( err );
+		OutputDebugStringA( "\n" );
+		return false;
+	}
+	return true;
+}
+
 template<typename T> 
 unsigned long __stdcall AudioInputT<T>::waveInProc( void far *arg )
 {
-
-	// Get instance
 	AudioInputT<T>* instance = (AudioInputT<T>*) arg;
-
-	// Get message from thread
 	tagMSG message;
-
-	// Bail if instance not available
 	if ( instance == 0 ) { 
 		return 0;
 	}
-
-	// Get message from thread
-	while ( GetMessage( & message, 0, 0, 0 ) ) { 
+	while ( GetMessage( &message, 0, 0, 0 ) ) { 
 		instance->receiveMessage( message );
 	}
-
-	// Return
 	return 0;
-
 }
 
-// Template implementations
 template class AudioInputT<uint8_t>;
 template class AudioInputT<int16_t>;
 template class AudioInputT<uint32_t>;

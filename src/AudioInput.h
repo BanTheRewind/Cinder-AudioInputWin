@@ -1,6 +1,6 @@
 /*
 * 
-* Copyright (c) 2012, Ban the Rewind
+* Copyright (c) 2013, Ban the Rewind
 * All rights reserved.
 * 
 * Redistribution and use in source and binary forms, with or 
@@ -36,17 +36,14 @@
 
 #pragma once
 
-// Includes
-#include <algorithm>
-#include "boost/signals2.hpp"
-#include "cinder/app/App.h"
-#include "MMSystem.h"
-#include "ppl.h"
-#include <utility>
+#include <functional>
+#include <map>
+#include "mmsystem.h"
+#include <string>
 #include <vector>
-#include "windows.h"
+#include <utility>
+#include "Windows.h"
 
-// Define device query functions if WDK is not present
 #ifndef DRV_RESERVED
 #define DRV_RESERVED					0×0800
 #endif
@@ -57,171 +54,100 @@
 #define DRV_QUERYDEVICEINTERFACESIZE	( DRV_RESERVED + 13 )
 #endif
 
-// Device map alias
-typedef std::map<int32_t, std::string> DeviceList;
-
-// Audio input for Windows
 template<typename T> 
 class AudioInputT
 {
-
 public:
+	static const size_t BUFFER_COUNT = 32;
 
-	// Constants
-	static const uint32_t BUFFER_COUNT = 32;
-
-	// Header for WAV file
+	//! Header for WAV file
 	typedef struct
 	{
-		int_fast8_t		RIFF[ 4 ];
-		unsigned long	bytes;
-		int_fast8_t		WAVE[ 4 ];
-		int_fast8_t		fmt[ 4 ];
-		int32_t			siz_wf;
-		uint16_t		wFormatTag;
-		uint16_t		nChannels;
-		unsigned long	nSamplesPerSec;
-		unsigned long	nAvgBytesPerSec;
-		uint16_t		nBlockAlign;
-		uint16_t		wBitsPerSample;
-		int_fast8_t		data[ 4 ];
-		unsigned long	pcmbytes;
+		int_fast8_t							RIFF[ 4 ];
+		unsigned long						bytes;
+		int_fast8_t							WAVE[ 4 ];
+		int_fast8_t							fmt[ 4 ];
+		int32_t								siz_wf;
+		uint16_t							wFormatTag;
+		uint16_t							nChannels;
+		unsigned long						nSamplesPerSec;
+		unsigned long						nAvgBytesPerSec;
+		uint16_t							nBlockAlign;
+		uint16_t							wBitsPerSample;
+		int_fast8_t							data[ 4 ];
+		unsigned long						pcmbytes;
 	} WAVFILEHEADER;
 
-	// Creates pointer to instance
-	static std::shared_ptr<AudioInputT<T> > create( int32_t sampleRate = 44100, int32_t channelCount = 2, 
-													int32_t bufferLength = BUFFER_LENGTH );
-
-	// Destructor
+	//! Creates audio input instance.
+	static std::shared_ptr<AudioInputT<T> >	create( size_t sampleRate = 44100, size_t channelCount = 2, 
+													size_t bufferLength = BUFFER_LENGTH );
 	~AudioInputT();
 
-	// Start audio input
-	void start();
-	void stop();
+	//! Starts audio input.
+	void									start();
+	//! Stops audio input.
+	void									stop();
 
-	// Callbacks
+	/*! Sets buffer event handler. \a eventHandler has the signature \a void(float*, size_t). 
+        \a obj is the instance receiving the event. */
 	template<typename T, typename Y> 
-	inline uint32_t	addCallback( T callback, Y *callbackObject )
-	{
-		uint32_t id = mCallbacks.empty() ? 0 : mCallbacks.rbegin()->first + 1;
-		mCallbacks.insert( std::make_pair( id, CallbackRef( new Callback( mSignal.connect( std::bind( callback, callbackObject, std::placeholders::_1, std::placeholders::_2 ) ) ) ) ) );
-		return id;
-	}
-	void		removeCallback( int32_t callbackID );
+    inline void								connectEventHandler( T eventHandler, Y* obj )
+    {
+            connectEventHandler( std::bind( eventHandler, obj, std::placeholders::_1, std::placeholders::_2 ) );
+    }
 
-	// Check for and print error
-	bool		error();
+	//! Sets buffer event callback to \a eventHandler.
+	void									connectEventHandler( const std::function<void( float*, size_t )>& eventHandler );
 
-	// Getters
-	int32_t		getBitsPerSample() 
-	{ 
-		return mBitsPerSample; 
-	}
-	int32_t		getBufferLength() 
-	{ 
-		return mBufferLength; 
-	}
-	int32_t		getChannelCount() 
-	{ 
-		return mChannelCount; 
-	}
-	T*			getData() 
-	{ 
-		return mBuffer; 
-	}
-	int32_t		getDataSize() 
-	{ 
-		return mBufferSize; 
-	}
-	int32_t		getDeviceCount() 
-	{ 
-		return mDeviceCount; 
-	}
-	DeviceList	getDeviceList();
-	float*		getNormalizedData() 
-	{ 
-		return mNormalBuffer; 
-	}
-	int32_t		getSampleRate() 
-	{ 
-		return mSampleRate; 
-	}
-	bool	isReceiving() 
-	{ 
-		return mReceiving; 
-	}
+	size_t									getBitsPerSample() const;
+	size_t									getBufferLength() const;
+	size_t									getChannelCount() const;
+	T*										getData() const;
+	size_t									getDataSize() const;
+	size_t									getDeviceCount() const;
+	const std::vector<std::string>&			getDeviceNames() const;
+	float*									getNormalizedData() const;
+	size_t									getSampleRate() const;
+	bool									isReceiving() const;
 
-	// Setters
-	void	setDevice( int32_t deviceId );
+	void									setDevice( size_t index );
 
 	// Multimedia API callback
-	static unsigned long __stdcall waveInProc( void far *arg );
+	static unsigned long __stdcall			waveInProc( void far* arg );
+protected:
+	static const size_t						BUFFER_LENGTH		= 1024;
+	static const size_t						MESSAGE_BUFFER_SIZE	= 256;
 
-private:
+	AudioInputT( size_t sampleRate = 44100, size_t channelCount = 2, size_t bufferLength = BUFFER_LENGTH );
 
-	// Constants
-	static const uint32_t BUFFER_LENGTH			= 1024;
-	static const uint32_t MESSAGE_BUFFER_SIZE	= 256;
+	size_t									mBitsPerSample;
+	T*										mBuffer;
+	size_t									mBufferLength;
+	std::vector<T*>							mBuffers;
+	size_t									mBufferSize;
+	uint_least8_t							mBuffersRead;
+	size_t									mChannelCount;
+	HWAVEIN									mDevice;
+	size_t									mDeviceCount;
+	size_t									mDeviceIndex;
+	std::vector<std::string>				mDeviceNames;
+	std::function<void( float*, size_t )>	mEventHandler;
+	std::locale								mLocale;
+	std::vector<wavehdr_tag*>				mHeaders;
+	float*									mNormalBuffer;
+	bool									mReceiving;
+	size_t									mSampleRate;
+	void*									mThread;
 
-	// Callback aliases
-	typedef boost::signals2::connection			Callback;
-	typedef std::shared_ptr<Callback>			CallbackRef;
-	typedef std::map<int32_t, CallbackRef>		CallbackList;
-
-	// Constructor
-	// NOTE: Make this public to build instance
-	// directly on the stack (advanced)
-	AudioInputT( int32_t sampleRate = 44100, int32_t channelCount = 2, int32_t bufferLength = BUFFER_LENGTH );
-
-	// Flags
-	bool			mReceiving;
-
-	// The current audio buffer
-	int32_t			mBufferLength;
-	T				*mBuffer;
-	uint_least8_t	mBuffersComplete;
-	int32_t			mBufferSize;
-	void			receiveMessage( tagMSG message );
-
-	// Buffer for analyzing audio
-	float			*getNormalBuffer();
-	float			*mNormalBuffer;
-
-	// Windows multimedia API
-	std::vector<T*>				mHeaderBuffers;
-	std::vector<wavehdr_tag*>	mInputBuffers;
-	MMRESULT					mResultHnd;
-	void						*mWaveInThread;
-	tWAVEFORMATEX				mWavFormat;
-
-	// WAV format
-	int32_t						mBitsPerSample;
-	int32_t						mChannelCount;
-	int32_t						mSampleRate;
-
-	// Callback list
-	boost::signals2::signal<void ( float*, int32_t )>	mSignal;
-	CallbackList										mCallbacks;
-
-	// Device list
-	int32_t						mDeviceCount;
-	HWAVEIN						mDeviceHnd;
-	int32_t						mDeviceId;
-	DeviceList					mDeviceList;
-	int_fast8_t					mDeviceName[ 32 ];
-	std::locale					mLocale;
-
-	// Error message buffer
-	int_fast8_t					mError[ MESSAGE_BUFFER_SIZE ];
-
+	void									receiveMessage( tagMSG message );
+	bool									success( MMRESULT hr );
 };
 
-// Aliases
-typedef AudioInputT<uint8_t>			AudioInput8;
-typedef AudioInputT<int16_t>			AudioInput16;
-typedef AudioInputT<uint32_t>			AudioInput32;
-typedef AudioInput16					AudioInput;
-typedef std::shared_ptr<AudioInput8>	AudioInputRef8;
-typedef std::shared_ptr<AudioInput16>	AudioInputRef16;
-typedef std::shared_ptr<AudioInput32>	AudioInputRef32;
-typedef AudioInputRef16					AudioInputRef;
+typedef AudioInputT<uint8_t>				AudioInput8;
+typedef AudioInputT<int16_t>				AudioInput16;
+typedef AudioInputT<uint32_t>				AudioInput32;
+typedef AudioInput16						AudioInput;
+typedef std::shared_ptr<AudioInput8>        AudioInputRef8;
+typedef std::shared_ptr<AudioInput16>		AudioInputRef16;
+typedef std::shared_ptr<AudioInput32>		AudioInputRef32;
+typedef AudioInputRef16						AudioInputRef;

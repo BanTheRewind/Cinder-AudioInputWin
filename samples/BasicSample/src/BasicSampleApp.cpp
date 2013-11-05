@@ -1,6 +1,6 @@
 /*
 * 
-* Copyright (c) 2012, Ban the Rewind
+* Copyright (c) 2013, Ban the Rewind
 * All rights reserved.
 * 
 * Redistribution and use in source and binary forms, with or 
@@ -34,123 +34,79 @@
 * 
 */
 
-// Includes
-#include "AudioInput.h"
 #include "cinder/app/AppBasic.h"
 
-// Main application
+#include "AudioInput.h"
+
 class BasicSampleApp : public ci::app::AppBasic 
 {
-
 public:
-
-	// Cinder callbacks
-	void draw();
-	void shutdown();
-	void setup();
-
-	// Audio callback
-	void onData( float *data, int32_t size );
-
+	void			draw();
+	void			setup();
+	void			shutdown();
 private:
-
-	// Audio input
 	float			*mData;
+	size_t			mDataSize;
 	AudioInputRef	mInput;
-
 };
 
-// Imports
 using namespace ci;
 using namespace ci::app;
+using namespace std;
 
-// Draw
 void BasicSampleApp::draw()
 {
-
-	// Clear screen
+	gl::setViewport( getWindowBounds() );
 	gl::clear( ColorAf::black() );
+	gl::setMatricesWindow( getWindowSize() );
 
-	// We have audio data
 	if ( mData != 0 ) {
+		float scale	= ( (float)getWindowWidth() - 20.0f ) / (float)mDataSize;
+		float h		= (float)getWindowHeight();
 
-		// Get size of data
-		int32_t mDataSize = mInput->getDataSize();
-
-		// Get dimensions
-		float mScale = ( (float)getWindowWidth() - 20.0f ) / (float)mDataSize;
-		float mWindowHeight = (float)getWindowHeight();
-
-		// Use polyline to depict audio
-		PolyLine<Vec2f> mLine;
-
-		// Iterate through data and populate line
-		for ( int32_t i = 0; i < mDataSize; i++ ) {
-			mLine.push_back( Vec2f( i * mScale + 10.0f, mData[ i ] * ( mWindowHeight - 20.0f ) * 0.25f + ( mWindowHeight * 0.5f + 10.0f ) ) );
+		gl::begin( GL_LINE_STRIP );
+		for ( int32_t i = 0; i < mDataSize; ++i ) {
+			gl::vertex( Vec2f( i * scale + 10.0f, mData[ i ] * ( h - 20.0f ) * 0.25f + ( h * 0.5f + 10.0f ) ) );
 		}
-
-		// Draw signal
-		gl::draw( mLine );
-
+		gl::end();
 	}
-
 }
 
-// Called when buffer is full
-void BasicSampleApp::onData( float *data, int32_t size )
-{
-	mData = data;
-}
-
-// Called on exit
 void BasicSampleApp::shutdown()
 {
-
-	// Stop input
 	mInput->stop();
-
-	// Free resources
 	if ( mData != 0 ) {
 		delete [] mData;
 	}
-
 }
 
-// Set up
 void BasicSampleApp::setup()
 {
-
-	// Set up window
 	setFrameRate( 60.0f );
 	setWindowSize( 600, 600 );
 
-	// Set up line rendering
 	gl::enable( GL_LINE_SMOOTH );
 	glHint( GL_LINE_SMOOTH_HINT, GL_NICEST );
 	gl::color( ColorAf::white() );
 
-	// Initialize array
-	mData = 0;
+	mData		= 0;
+	mDataSize	= 0;
 
-	// Create audio input
 	mInput = AudioInput::create();
-
-	// Bail if no devices present
-	if ( mInput->getDeviceCount() <= 0 ) {
+	if ( mInput->getDeviceCount() > 0 ) {
 		return;
+		mInput->connectEventHandler( [ = ]( float* data, size_t dataSize )
+		{
+			mData		= data;
+			mDataSize	= dataSize;
+		} );
+		mInput->start();
+
+		vector<string> devices = mInput->getDeviceNames();
+		for ( const string& device : devices ) {
+			console() << device << endl;
+		}
 	}
-
-	// Start receiving audio
-	mInput->addCallback( &BasicSampleApp::onData, this );
-	mInput->start();
-
-	// List devices
-	DeviceList devices = mInput->getDeviceList();
-	for ( DeviceList::const_iterator deviceIt = devices.begin(); deviceIt != devices.end(); ++deviceIt ) {
-		console() << deviceIt->second << std::endl;
-	}
-
 }
 
-// Start application
 CINDER_APP_BASIC( BasicSampleApp, RendererGl )
